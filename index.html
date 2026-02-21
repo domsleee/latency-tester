@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Latency Tester — Audio & Visual</title>
 <meta name="description" content="Measure audio and visual latency in headphones, speakers, Bluetooth devices, and VR.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -30,8 +28,8 @@
   --red: #e84040;
   --red-dim: rgba(232, 64, 64, 0.12);
   --flash-color: #f0a830;
-  --font-mono: 'IBM Plex Mono', 'DM Mono', monospace;
-  --font-body: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', 'DejaVu Sans Mono', Menlo, Consolas, monospace;
+  --font-body: system-ui, -apple-system, 'Segoe UI', sans-serif;
   --radius: 6px;
   --radius-lg: 10px;
 }
@@ -256,28 +254,28 @@ body {
   transform: translateX(-50%);
 }
 
-/* --- BPM Control --- */
-.bpm-control {
+/* --- Editable Stats (BPM / Offset) --- */
+.editable-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.editable-stat {
   background: var(--bg-panel);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius);
-  padding: 12px 16px;
+  padding: 10px 8px 8px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.editable-stat .stat-label { margin-bottom: 0; }
+.editable-stat-controls {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-}
-.bpm-control label {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
-}
-.bpm-input-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 .bpm-btn {
   width: 28px;
@@ -298,28 +296,11 @@ body {
 .bpm-btn:active { background: var(--border-subtle); }
 .bpm-btn:disabled { opacity: 0.3; pointer-events: none; }
 
-.key-list {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--amber);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 160px;
-}
-.key-listening {
-  color: var(--amber);
-  animation: blink 0.6s steps(1) infinite;
-}
-@keyframes blink {
-  50% { opacity: 0.3; }
-}
-
 input[type="number"].bpm-input {
   font-family: var(--font-mono);
   font-size: 18px;
   font-weight: 400;
-  width: 56px;
+  width: 52px;
   text-align: center;
   background: none;
   border: none;
@@ -330,6 +311,37 @@ input[type="number"].bpm-input {
 input[type="number"].bpm-input::-webkit-inner-spin-button,
 input[type="number"].bpm-input::-webkit-outer-spin-button {
   -webkit-appearance: none;
+}
+
+/* --- Tap Keys (subtle inline) --- */
+.tap-keys-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+.tap-keys-row .stat-label { margin-bottom: 0; }
+.key-list {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--amber);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+.key-listening {
+  color: var(--amber);
+  animation: blink 0.6s steps(1) infinite;
+}
+@keyframes blink {
+  50% { opacity: 0.3; }
+}
+.tap-keys-row .bpm-btn {
+  width: 22px;
+  height: 22px;
+  font-size: 13px;
 }
 
 /* --- Tap Zone --- */
@@ -446,7 +458,7 @@ input[type="number"].bpm-input::-webkit-outer-spin-button {
 }
 .btn-stop:hover { border-color: var(--red); color: var(--red); }
 .btn-reset:hover { border-color: var(--border-medium); color: var(--text-primary); }
-.controls-row.hidden { display: none; }
+.controls-row.hidden { visibility: hidden; }
 
 /* --- Info Panel --- */
 .info-panel {
@@ -559,35 +571,33 @@ input[type="number"].bpm-input::-webkit-outer-spin-button {
     <div class="graph-tooltip" id="graphTooltip"></div>
   </div>
 
-  <!-- BPM Control -->
-  <div class="bpm-control">
-    <label>BPM</label>
-    <div class="bpm-input-group">
-      <button class="bpm-btn" id="bpmDown">&minus;</button>
-      <input type="number" class="bpm-input" id="bpmInput" value="90" min="20" max="1200" aria-label="BPM">
-      <button class="bpm-btn" id="bpmUp">+</button>
+  <!-- BPM & Offset -->
+  <div class="editable-stats">
+    <div class="editable-stat">
+      <div class="stat-label">BPM</div>
+      <div class="editable-stat-controls">
+        <button class="bpm-btn" id="bpmDown">&minus;</button>
+        <input type="number" class="bpm-input" id="bpmInput" value="90" min="20" max="1200" aria-label="BPM">
+        <button class="bpm-btn" id="bpmUp">+</button>
+      </div>
+    </div>
+    <div class="editable-stat">
+      <div class="stat-label">Offset <span style="font-size:7px;opacity:0.6">ms</span></div>
+      <div class="editable-stat-controls">
+        <button class="bpm-btn" id="offsetDown">&minus;</button>
+        <input type="number" class="bpm-input" id="offsetInput" value="0" step="1" aria-label="Offset in milliseconds">
+        <button class="bpm-btn" id="offsetUp">+</button>
+        <button class="bpm-btn" id="offsetFromAvg" title="Set from current average" style="font-size:9px;width:auto;padding:0 6px;">Avg</button>
+      </div>
     </div>
   </div>
 
-  <!-- Offset Control -->
-  <div class="bpm-control">
-    <label>Offset <span style="font-size:8px;opacity:0.5">ms</span></label>
-    <div class="bpm-input-group">
-      <button class="bpm-btn" id="offsetDown">&minus;</button>
-      <input type="number" class="bpm-input" id="offsetInput" value="0" step="1" aria-label="Offset in milliseconds">
-      <button class="bpm-btn" id="offsetUp">+</button>
-      <button class="bpm-btn" id="offsetFromAvg" title="Set from current average" style="font-size:10px;width:auto;padding:0 6px;">Avg</button>
-    </div>
-  </div>
-
-  <!-- Key Bindings -->
-  <div class="bpm-control">
-    <label>Tap Keys</label>
-    <div class="bpm-input-group">
-      <span class="key-list" id="keyList">Enter, z, x</span>
-      <button class="bpm-btn" id="addKeyBtn" title="Press to bind a new key">+</button>
-      <button class="bpm-btn" id="clearKeysBtn" title="Reset to defaults">&#8634;</button>
-    </div>
+  <!-- Tap Keys -->
+  <div class="tap-keys-row">
+    <div class="stat-label">Keys</div>
+    <span class="key-list" id="keyList">Enter, z, x</span>
+    <button class="bpm-btn" id="addKeyBtn" title="Press to bind a new key">+</button>
+    <button class="bpm-btn" id="clearKeysBtn" title="Reset to defaults">&#8634;</button>
   </div>
 
   <!-- Tap Zone -->
@@ -1241,25 +1251,6 @@ input[type="number"].bpm-input::-webkit-outer-spin-button {
   }
 })();
 
-// Load Google Fonts on first user interaction.
-// User interaction finalizes LCP measurement, so font swap won't affect the score.
-(function() {
-  var loaded = false;
-  function load() {
-    if (loaded) return;
-    loaded = true;
-    var link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = 'https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Space+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap';
-    document.head.appendChild(link);
-    document.removeEventListener('click', load);
-    document.removeEventListener('keydown', load);
-    document.removeEventListener('touchstart', load);
-  }
-  document.addEventListener('click', load);
-  document.addEventListener('keydown', load);
-  document.addEventListener('touchstart', load);
-})();
 </script>
 </body>
 </html>
