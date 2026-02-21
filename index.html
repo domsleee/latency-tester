@@ -569,6 +569,17 @@ input[type="number"].bpm-input::-webkit-outer-spin-button {
     </div>
   </div>
 
+  <!-- Offset Control -->
+  <div class="bpm-control">
+    <label>Offset <span style="font-size:8px;opacity:0.5">ms</span></label>
+    <div class="bpm-input-group">
+      <button class="bpm-btn" id="offsetDown">&minus;</button>
+      <input type="number" class="bpm-input" id="offsetInput" value="0" step="1">
+      <button class="bpm-btn" id="offsetUp">+</button>
+      <button class="bpm-btn" id="offsetFromAvg" title="Set from current average" style="font-size:10px;width:auto;padding:0 6px;">Avg</button>
+    </div>
+  </div>
+
   <!-- Key Bindings -->
   <div class="bpm-control">
     <label>Tap Keys</label>
@@ -626,6 +637,10 @@ input[type="number"].bpm-input::-webkit-outer-spin-button {
   const bpmInput = $('#bpmInput');
   const bpmDown = $('#bpmDown');
   const bpmUp = $('#bpmUp');
+  const offsetInput = $('#offsetInput');
+  const offsetDown = $('#offsetDown');
+  const offsetUp = $('#offsetUp');
+  const offsetFromAvg = $('#offsetFromAvg');
   const controlsRow = $('#controlsRow');
   const btnStop = $('#btnStop');
   const btnReset = $('#btnReset');
@@ -679,6 +694,9 @@ input[type="number"].bpm-input::-webkit-outer-spin-button {
 
   let bpm = (savedBpm >= 20 && savedBpm <= 1200) ? savedBpm : 90;
   bpmInput.value = bpm;
+  const savedOffset = parseFloat(localStorage.getItem('latency-offset'));
+  let offset = isFinite(savedOffset) ? savedOffset : 0; // ms to subtract from raw latency
+  offsetInput.value = offset;
   let state = 'idle'; // 'idle' | 'warmup' | 'running'
   let audioCtx = null;
 
@@ -783,7 +801,8 @@ input[type="number"].bpm-input::-webkit-outer-spin-button {
     const elapsed = tapAudioTime - measureStartAudioTime;
     const beatIndex = Math.round(elapsed / interval);
     const expectedBeatAudioTime = measureStartAudioTime + beatIndex * interval;
-    return (tapAudioTime - expectedBeatAudioTime) * 1000; // return ms
+    const rawMs = (tapAudioTime - expectedBeatAudioTime) * 1000;
+    return rawMs - offset; // subtract offset so calibrated latency reads ~0
   }
 
   function scheduler() {
@@ -1134,6 +1153,26 @@ input[type="number"].bpm-input::-webkit-outer-spin-button {
   });
   bpmDown.addEventListener('click', () => setBpm(bpm - 5));
   bpmUp.addEventListener('click', () => setBpm(bpm + 5));
+
+  // Offset controls
+  function setOffset(val) {
+    offset = Math.round(val * 10) / 10;
+    offsetInput.value = offset;
+    localStorage.setItem('latency-offset', offset);
+  }
+  offsetInput.addEventListener('input', () => {
+    const v = parseFloat(offsetInput.value);
+    if (isFinite(v)) setOffset(v);
+  });
+  offsetDown.addEventListener('click', () => setOffset(offset - 5));
+  offsetUp.addEventListener('click', () => setOffset(offset + 5));
+  offsetFromAvg.addEventListener('click', () => {
+    if (latencies.length === 0) return;
+    // The displayed avg is already offset-adjusted (raw - offset).
+    // To find the true device latency: offset + displayedAvg = raw latency.
+    const avg = latencies.reduce((a, b) => a + b, 0) / latencies.length;
+    setOffset(Math.round(offset + avg));
+  });
 
   // Mode switches
   modeAudio.addEventListener('change', () => {
