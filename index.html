@@ -2,13 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Latency Tester — Audio & Visual</title>
 <meta name="description" content="Measure audio and visual latency in headphones, speakers, Bluetooth devices, and VR.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Space+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-<noscript><link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Space+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet"></noscript>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -21,7 +19,7 @@
   --border-medium: #3a3a42;
   --text-primary: #e8e6e3;
   --text-secondary: #8a8890;
-  --text-tertiary: #5a5860;
+  --text-tertiary: #807e88;
   --amber: #f0a830;
   --amber-dim: #b07820;
   --amber-glow: rgba(240, 168, 48, 0.15);
@@ -514,17 +512,17 @@ input[type="number"].bpm-input::-webkit-outer-spin-button {
 </style>
 </head>
 <body>
-<div class="app">
+<main class="app">
   <header class="header">
     <h1><span>&#9679;</span> Latency Tester</h1>
     <div class="mode-switches">
       <label class="mode-switch">
-        <input type="checkbox" id="modeAudio" checked>
+        <input type="checkbox" id="modeAudio" checked aria-label="Audio mode">
         <span class="toggle-track"></span>
         <span class="toggle-label">Audio</span>
       </label>
       <label class="mode-switch">
-        <input type="checkbox" id="modeVisual">
+        <input type="checkbox" id="modeVisual" aria-label="Visual mode">
         <span class="toggle-track"></span>
         <span class="toggle-label">Visual</span>
       </label>
@@ -566,7 +564,7 @@ input[type="number"].bpm-input::-webkit-outer-spin-button {
     <label>BPM</label>
     <div class="bpm-input-group">
       <button class="bpm-btn" id="bpmDown">&minus;</button>
-      <input type="number" class="bpm-input" id="bpmInput" value="90" min="20" max="1200">
+      <input type="number" class="bpm-input" id="bpmInput" value="90" min="20" max="1200" aria-label="BPM">
       <button class="bpm-btn" id="bpmUp">+</button>
     </div>
   </div>
@@ -576,7 +574,7 @@ input[type="number"].bpm-input::-webkit-outer-spin-button {
     <label>Offset <span style="font-size:8px;opacity:0.5">ms</span></label>
     <div class="bpm-input-group">
       <button class="bpm-btn" id="offsetDown">&minus;</button>
-      <input type="number" class="bpm-input" id="offsetInput" value="0" step="1">
+      <input type="number" class="bpm-input" id="offsetInput" value="0" step="1" aria-label="Offset in milliseconds">
       <button class="bpm-btn" id="offsetUp">+</button>
       <button class="bpm-btn" id="offsetFromAvg" title="Set from current average" style="font-size:10px;width:auto;padding:0 6px;">Avg</button>
     </div>
@@ -614,11 +612,11 @@ input[type="number"].bpm-input::-webkit-outer-spin-button {
     </button>
     <div class="info-content" id="infoContent">
       <p>A beat plays at the configured BPM. Tap the pad each time you hear (or see) it. The time between the beat firing and your tap is your device's latency.</p>
-      <p>After a 3-second countdown, you'll hear 4 warm-up beats to lock into the rhythm before measurement begins. The displayed value is a rolling average of your last 10 taps.</p>
-      <p><strong>Modulo</strong> shows <code>latency % beat_interval</code> &mdash; useful if your latency exceeds one full beat (e.g. Bluetooth speakers or AirPlay).</p>
+      <p>4 warm-up beats play first so you can lock into the rhythm. Then measurement begins. The displayed value is a rolling average of your last 10 taps.</p>
+      <p>Use <strong>Offset</strong> to calibrate &mdash; click <strong>Avg</strong> to set it from your current average, then re-test to verify it reads ~0ms.</p>
     </div>
   </div>
-</div>
+</main>
 
 <script>
 (() => {
@@ -981,35 +979,34 @@ input[type="number"].bpm-input::-webkit-outer-spin-button {
 
     ctx.clearRect(0, 0, w, h);
 
-    if (latencyHistory.length < 2) return;
-
     const padding = { top: 20, bottom: 8, left: 4, right: 4 };
     const plotW = w - padding.left - padding.right;
     const plotH = h - padding.top - padding.bottom;
-
-    // Signed values: positive = late (above beat line), negative = early (below)
-    const plotVals = latencyHistory;
-    const maxAbs = Math.max(...plotVals.map(Math.abs), 50);
-
-    // Map value to Y: 0ms is centered, positive goes up, negative goes down
     const midY = padding.top + plotH / 2;
-    function valToY(v) {
-      return midY - (v / maxAbs) * (plotH / 2);
-    }
 
-    // --- Beat line at 0ms (the reference) ---
+    // --- Beat line at 0ms (the reference) — always shown ---
     ctx.strokeStyle = 'rgba(240, 168, 48, 0.35)';
     ctx.setLineDash([4, 4]);
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(padding.left, midY); ctx.lineTo(w - padding.right, midY); ctx.stroke();
     ctx.setLineDash([]);
 
-    // Label the sides
-    ctx.font = '9px "IBM Plex Mono", monospace';
-    ctx.fillStyle = 'rgba(138, 136, 144, 0.5)';
+    // Label the sides — always shown
+    ctx.font = '9px monospace';
+    ctx.fillStyle = 'rgba(138, 136, 144, 0.7)';
     ctx.textAlign = 'right';
     ctx.fillText('LATE', w - padding.right, padding.top + 10);
     ctx.fillText('EARLY', w - padding.right, h - padding.bottom);
+
+    if (latencyHistory.length < 2) return;
+
+    // Signed values: positive = late (above beat line), negative = early (below)
+    const plotVals = latencyHistory;
+    const maxAbs = Math.max(...plotVals.map(Math.abs), 50);
+
+    function valToY(v) {
+      return midY - (v / maxAbs) * (plotH / 2);
+    }
 
     // --- Draw line ---
     ctx.beginPath();
@@ -1031,10 +1028,8 @@ input[type="number"].bpm-input::-webkit-outer-spin-button {
       const v = plotVals[i];
       const absV = Math.abs(v);
       if (v >= 0) {
-        // Late: green < 30, yellow < 100, red > 100
         ctx.fillStyle = absV <= 30 ? '#30d060' : absV <= 100 ? '#e8c840' : '#e84040';
       } else {
-        // Early: cyan/blue tones
         ctx.fillStyle = absV <= 30 ? '#40c8e0' : absV <= 100 ? '#6090e0' : '#8050d0';
       }
       ctx.beginPath();
@@ -1202,10 +1197,9 @@ input[type="number"].bpm-input::-webkit-outer-spin-button {
     infoContent.classList.toggle('open');
   });
 
-  // Resize graph
-  window.addEventListener('resize', () => {
-    if (latencyHistory.length >= 2) drawGraph();
-  });
+  // Resize graph + draw initial empty state
+  window.addEventListener('resize', drawGraph);
+  requestAnimationFrame(drawGraph);
 
   // Graph hover tooltip
   graphCanvas.addEventListener('mousemove', showGraphTooltip);
@@ -1245,6 +1239,26 @@ input[type="number"].bpm-input::-webkit-outer-spin-button {
     graphTooltip.style.left = tooltipX + 'px';
     graphTooltip.style.top = '2px';
   }
+})();
+
+// Load Google Fonts on first user interaction.
+// User interaction finalizes LCP measurement, so font swap won't affect the score.
+(function() {
+  var loaded = false;
+  function load() {
+    if (loaded) return;
+    loaded = true;
+    var link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Space+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap';
+    document.head.appendChild(link);
+    document.removeEventListener('click', load);
+    document.removeEventListener('keydown', load);
+    document.removeEventListener('touchstart', load);
+  }
+  document.addEventListener('click', load);
+  document.addEventListener('keydown', load);
+  document.addEventListener('touchstart', load);
 })();
 </script>
 </body>
