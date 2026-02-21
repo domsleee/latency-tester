@@ -29,6 +29,12 @@ After 4 warm-up beats to lock into the rhythm, measurement begins. The displayed
 3. Re-test — measured latency should now read ~0ms
 4. Use that offset value in your application's audio settings
 
+## Example measurements
+
+| Device | Latency |
+|--------|---------|
+| AirPods Pro | ~150ms |
+
 ## Inspired by
 
 [NullVoxPopuli/latency-tester](https://github.com/NullVoxPopuli/latency-tester) — this is a ground-up rewrite addressing the open issues from that project.
