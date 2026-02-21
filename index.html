@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Latency Tester — Audio & Visual</title>
+<meta name="description" content="Measure audio and visual latency in headphones, speakers, Bluetooth devices, and VR.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Space+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-deep: #0a0a0c;
+  --bg-panel: #111114;
+  --bg-surface: #18181c;
+  --bg-elevated: #1f1f24;
+  --border-subtle: #2a2a30;
+  --border-medium: #3a3a42;
+  --text-primary: #e8e6e3;
+  --text-secondary: #8a8890;
+  --text-tertiary: #5a5860;
+  --amber: #f0a830;
+  --amber-dim: #b07820;
+  --amber-glow: rgba(240, 168, 48, 0.15);
+  --green: #30d060;
+  --green-dim: rgba(48, 208, 96, 0.12);
+  --yellow: #e8c840;
+  --yellow-dim: rgba(232, 200, 64, 0.12);
+  --red: #e84040;
+  --red-dim: rgba(232, 64, 64, 0.12);
+  --flash-color: #f0a830;
+  --font-mono: 'IBM Plex Mono', 'DM Mono', monospace;
+  --font-body: 'Space Grotesk', system-ui, sans-serif;
+  --radius: 6px;
+  --radius-lg: 10px;
+}
+
+html { font-size: 16px; }
+body {
+  font-family: var(--font-body);
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  min-height: 100dvh;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* --- Layout --- */
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 20px 16px 100px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100dvh;
+}
+
+/* --- Header --- */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+.header h1 {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.header h1 span {
+  color: var(--amber);
+}
+
+/* --- Mode Switches --- */
+.mode-switches {
+  display: flex;
+  gap: 10px;
+}
+.mode-switch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.mode-switch input { display: none; }
+.mode-switch .toggle-track {
+  width: 32px;
+  height: 18px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  position: relative;
+  transition: all 0.2s;
+}
+.mode-switch .toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  background: var(--text-tertiary);
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+.mode-switch input:checked + .toggle-track {
+  background: var(--amber-glow);
+  border-color: var(--amber-dim);
+}
+.mode-switch input:checked + .toggle-track::after {
+  left: 16px;
+  background: var(--amber);
+}
+.mode-switch .toggle-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  transition: color 0.2s;
+}
+.mode-switch input:checked ~ .toggle-label {
+  color: var(--amber);
+}
+
+/* --- Latency Display (Hero) --- */
+.latency-hero {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 24px 20px 20px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.latency-hero::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--border-subtle);
+  transition: background 0.3s;
+}
+.latency-hero.status-good::before { background: var(--green); box-shadow: 0 0 12px var(--green); }
+.latency-hero.status-ok::before { background: var(--yellow); box-shadow: 0 0 12px var(--yellow); }
+.latency-hero.status-bad::before { background: var(--red); box-shadow: 0 0 12px var(--red); }
+
+.latency-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+.latency-value {
+  font-family: var(--font-mono);
+  font-size: 64px;
+  font-weight: 300;
+  line-height: 1;
+  color: var(--text-primary);
+  transition: color 0.3s;
+  position: relative;
+}
+.latency-value.status-good { color: var(--green); }
+.latency-value.status-ok { color: var(--yellow); }
+.latency-value.status-bad { color: var(--red); }
+
+.latency-unit {
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+  margin-left: 4px;
+}
+.latency-sub {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 12px;
+}
+
+/* --- Stats Grid --- */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+.stat-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 12px;
+  text-align: center;
+}
+.stat-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+.stat-value {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+/* --- Latency Graph --- */
+.graph-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 12px;
+  height: 100px;
+  position: relative;
+  overflow: hidden;
+}
+.graph-panel .stat-label {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  z-index: 1;
+}
+.graph-canvas {
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+.graph-tooltip {
+  display: none;
+  position: absolute;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-medium);
+  border-radius: 4px;
+  padding: 3px 7px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-primary);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 2;
+  transform: translateX(-50%);
+}
+
+/* --- BPM Control --- */
+.bpm-control {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.bpm-control label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.bpm-input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bpm-btn {
+  width: 28px;
+  height: 28px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  font-family: var(--font-mono);
+}
+.bpm-btn:hover { border-color: var(--border-medium); color: var(--text-primary); }
+.bpm-btn:active { background: var(--border-subtle); }
+.bpm-btn:disabled { opacity: 0.3; pointer-events: none; }
+
+.key-list {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--amber);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+.key-listening {
+  color: var(--amber);
+  animation: blink 0.6s steps(1) infinite;
+}
+@keyframes blink {
+  50% { opacity: 0.3; }
+}
+
+input[type="number"].bpm-input {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 400;
+  width: 56px;
+  text-align: center;
+  background: none;
+  border: none;
+  color: var(--amber);
+  outline: none;
+  -moz-appearance: textfield;
+}
+input[type="number"].bpm-input::-webkit-inner-spin-button,
+input[type="number"].bpm-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+}
+
+/* --- Tap Zone --- */
+.tap-zone-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+}
+.tap-zone {
+  width: 100%;
+  max-width: 320px;
+  height: 160px;
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--border-medium);
+  background: var(--bg-surface);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.1s;
+  position: relative;
+  overflow: hidden;
+  outline: none;
+}
+.tap-zone::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.08s;
+  background: radial-gradient(circle at center, var(--amber-glow) 0%, transparent 70%);
+  pointer-events: none;
+}
+.tap-zone:active::after,
+.tap-zone.flash::after {
+  opacity: 1;
+}
+.tap-zone:active {
+  transform: scale(0.98);
+  border-color: var(--amber-dim);
+}
+.tap-zone.running {
+  border-color: var(--amber-dim);
+}
+.tap-zone.running:active {
+  border-color: var(--amber);
+  box-shadow: 0 0 20px var(--amber-glow), inset 0 0 30px var(--amber-glow);
+}
+.tap-zone.pulse {
+  border-color: var(--amber);
+  box-shadow: 0 0 16px var(--amber-glow);
+}
+/* Visual flash mode */
+.tap-zone.visual-flash {
+  background: var(--flash-color) !important;
+  border-color: var(--flash-color) !important;
+  box-shadow: 0 0 40px rgba(240, 168, 48, 0.4) !important;
+}
+
+.tap-zone-label {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+.tap-zone-hint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+.tap-zone .countdown-num {
+  font-family: var(--font-mono);
+  font-size: 48px;
+  font-weight: 300;
+  color: var(--amber);
+  line-height: 1;
+}
+.tap-zone .warmup-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--amber-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* --- Stop / Reset Buttons --- */
+.controls-row {
+  display: flex;
+  gap: 8px;
+}
+.btn-stop, .btn-reset {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-stop:hover { border-color: var(--red); color: var(--red); }
+.btn-reset:hover { border-color: var(--border-medium); color: var(--text-primary); }
+.controls-row.hidden { display: none; }
+
+/* --- Info Panel --- */
+.info-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.info-toggle {
+  width: 100%;
+  padding: 10px 16px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: color 0.15s;
+}
+.info-toggle:hover { color: var(--text-secondary); }
+.info-toggle .arrow {
+  display: inline-block;
+  transition: transform 0.2s;
+  font-size: 8px;
+}
+.info-toggle.open .arrow { transform: rotate(90deg); }
+.info-content {
+  display: none;
+  padding: 0 16px 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-tertiary);
+}
+.info-content.open { display: block; }
+.info-content p { margin-bottom: 8px; }
+.info-content code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--bg-elevated);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--text-secondary);
+}
+
+/* --- Responsive --- */
+@media (max-width: 400px) {
+  .app { padding: 12px 12px 80px; gap: 12px; }
+  .latency-value { font-size: 52px; }
+  .tap-zone { height: 140px; }
+  .stats-grid { gap: 6px; }
+  .stat-card { padding: 10px 8px; }
+}
+@media (min-height: 800px) {
+  .tap-zone { height: 200px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="header">
+    <h1><span>&#9679;</span> Latency Tester</h1>
+    <div class="mode-switches">
+      <label class="mode-switch">
+        <input type="checkbox" id="modeAudio" checked>
+        <span class="toggle-track"></span>
+        <span class="toggle-label">Audio</span>
+      </label>
+      <label class="mode-switch">
+        <input type="checkbox" id="modeVisual">
+        <span class="toggle-track"></span>
+        <span class="toggle-label">Visual</span>
+      </label>
+    </div>
+  </header>
+
+  <!-- Hero Readout -->
+  <div class="latency-hero" id="latencyHero">
+    <div class="latency-label">Measured Latency</div>
+    <div class="latency-value" id="latencyValue">&mdash;<span class="latency-unit">ms</span></div>
+    <div class="latency-sub" id="latencySub">Tap to begin</div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Beat</div>
+      <div class="stat-value" id="statBeat">&mdash;</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Your BPM</div>
+      <div class="stat-value" id="statUserBpm">&mdash;</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Last Tap</div>
+      <div class="stat-value" id="statLastTap">&mdash;</div>
+    </div>
+  </div>
+
+  <!-- Graph -->
+  <div class="graph-panel" id="graphPanel">
+    <div class="stat-label">History</div>
+    <canvas class="graph-canvas" id="graphCanvas"></canvas>
+    <div class="graph-tooltip" id="graphTooltip"></div>
+  </div>
+
+  <!-- BPM Control -->
+  <div class="bpm-control">
+    <label>BPM</label>
+    <div class="bpm-input-group">
+      <button class="bpm-btn" id="bpmDown">&minus;</button>
+      <input type="number" class="bpm-input" id="bpmInput" value="90" min="20" max="1200">
+      <button class="bpm-btn" id="bpmUp">+</button>
+    </div>
+  </div>
+
+  <!-- Key Bindings -->
+  <div class="bpm-control">
+    <label>Tap Keys</label>
+    <div class="bpm-input-group">
+      <span class="key-list" id="keyList">Enter, z, x</span>
+      <button class="bpm-btn" id="addKeyBtn" title="Press to bind a new key">+</button>
+      <button class="bpm-btn" id="clearKeysBtn" title="Reset to defaults">&#8634;</button>
+    </div>
+  </div>
+
+  <!-- Tap Zone -->
+  <div class="tap-zone-wrapper">
+    <button class="tap-zone" id="tapZone" tabindex="0">
+      <span class="tap-zone-label">Tap to Start</span>
+      <span class="tap-zone-hint">click or key</span>
+    </button>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls-row hidden" id="controlsRow">
+    <button class="btn-stop" id="btnStop">Stop</button>
+    <button class="btn-reset" id="btnReset">Reset</button>
+    <button class="btn-reset" id="btnDownloadLog">Log</button>
+  </div>
+
+  <!-- Info -->
+  <div class="info-panel">
+    <button class="info-toggle" id="infoToggle">
+      <span class="arrow">&#9654;</span> How it works
+    </button>
+    <div class="info-content" id="infoContent">
+      <p>A beat plays at the configured BPM. Tap the pad each time you hear (or see) it. The time between the beat firing and your tap is your device's latency.</p>
+      <p>After a 3-second countdown, you'll hear 4 warm-up beats to lock into the rhythm before measurement begins. The displayed value is a rolling average of your last 10 taps.</p>
+      <p><strong>Modulo</strong> shows <code>latency % beat_interval</code> &mdash; useful if your latency exceeds one full beat (e.g. Bluetooth speakers or AirPlay).</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // --- DOM ---
+  const $ = s => document.querySelector(s);
+  const tapZone = $('#tapZone');
+  const latencyHero = $('#latencyHero');
+  const latencyValue = $('#latencyValue');
+  const latencySub = $('#latencySub');
+  const statBeat = $('#statBeat');
+  const statUserBpm = $('#statUserBpm');
+  const statLastTap = $('#statLastTap');
+  const graphCanvas = $('#graphCanvas');
+  const graphPanel = $('#graphPanel');
+  const graphTooltip = $('#graphTooltip');
+  const bpmInput = $('#bpmInput');
+  const bpmDown = $('#bpmDown');
+  const bpmUp = $('#bpmUp');
+  const controlsRow = $('#controlsRow');
+  const btnStop = $('#btnStop');
+  const btnReset = $('#btnReset');
+  const btnDownloadLog = $('#btnDownloadLog');
+  const infoToggle = $('#infoToggle');
+  const infoContent = $('#infoContent');
+  const modeAudio = $('#modeAudio');
+  const modeVisual = $('#modeVisual');
+  const keyListEl = $('#keyList');
+  const addKeyBtn = $('#addKeyBtn');
+  const clearKeysBtn = $('#clearKeysBtn');
+
+  // --- State ---
+  let useAudio = localStorage.getItem('latency-audio') !== 'false'; // default true
+  let useVisual = localStorage.getItem('latency-visual') === 'true'; // default false
+  modeAudio.checked = useAudio;
+  modeVisual.checked = useVisual;
+  const savedBpm = parseInt(localStorage.getItem('latency-bpm'), 10);
+
+  // Configurable tap keys (persisted)
+  const DEFAULT_TAP_KEYS = new Set(['Enter', 'z', 'x']);
+  let tapKeys = loadTapKeys();
+  let isListeningForKey = false;
+
+  function loadTapKeys() {
+    try {
+      const saved = localStorage.getItem('latency-tap-keys');
+      if (saved) return new Set(JSON.parse(saved));
+    } catch {}
+    return new Set(DEFAULT_TAP_KEYS);
+  }
+  function saveTapKeys() {
+    localStorage.setItem('latency-tap-keys', JSON.stringify([...tapKeys]));
+  }
+
+  function keyDisplayName(key) {
+    if (key === ' ') return 'Space';
+    if (key === 'Enter') return 'Enter';
+    if (key === 'ArrowUp') return '\u2191';
+    if (key === 'ArrowDown') return '\u2193';
+    if (key === 'ArrowLeft') return '\u2190';
+    if (key === 'ArrowRight') return '\u2192';
+    return key.length === 1 ? key : key;
+  }
+
+  function updateKeyDisplay() {
+    keyListEl.textContent = [...tapKeys].map(keyDisplayName).join(', ');
+    keyListEl.classList.remove('key-listening');
+  }
+  updateKeyDisplay();
+
+  let bpm = (savedBpm >= 20 && savedBpm <= 1200) ? savedBpm : 90;
+  bpmInput.value = bpm;
+  let state = 'idle'; // 'idle' | 'warmup' | 'running'
+  let audioCtx = null;
+
+  const WARMUP_BEATS = 4;
+  const WINDOW_SIZE = 10;
+  const MAX_HISTORY = 30;
+
+  let warmupRemaining = 0;
+  let beatTimes = [];      // timestamps when beat fired
+  let userTimes = [];      // timestamps when user tapped
+  let latencies = [];      // computed per-tap latencies
+  let latencyHistory = []; // rolling history for graph
+  let eventLog = [];       // full event log for download
+
+  // --- Audio ---
+  function ensureAudioCtx() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+  }
+
+  // --- Audio: clean click optimized for Bluetooth/AirPods ---
+  // Pure sine tones with smooth envelopes to avoid codec artifacts.
+  // Bluetooth codecs (AAC/SBC) distort square waves and abrupt transients.
+  function playTickAt(audioTime) {
+    if (!audioCtx) return;
+    const t = audioTime;
+
+    // Primary: clean sine pop
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1000, t);
+    osc.frequency.exponentialRampToValueAtTime(500, t + 0.025);
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.35, t + 0.002); // smooth 2ms attack
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + 0.06);
+
+    // Upper harmonic for clarity
+    const h = audioCtx.createOscillator();
+    const hg = audioCtx.createGain();
+    h.type = 'sine';
+    h.frequency.setValueAtTime(2000, t);
+    hg.gain.setValueAtTime(0, t);
+    hg.gain.linearRampToValueAtTime(0.12, t + 0.001);
+    hg.gain.exponentialRampToValueAtTime(0.001, t + 0.025);
+    h.connect(hg);
+    hg.connect(audioCtx.destination);
+    h.start(t);
+    h.stop(t + 0.03);
+  }
+
+  // --- Visual Flash ---
+  function flashTapZone() {
+    tapZone.classList.add('visual-flash');
+    setTimeout(() => tapZone.classList.remove('visual-flash'), 80);
+  }
+
+  // --- Beat Pulse ---
+  function pulseTapZone() {
+    tapZone.classList.add('pulse');
+    setTimeout(() => tapZone.classList.remove('pulse'), 100);
+  }
+
+  // --- Timing ---
+  function beatIntervalMs() {
+    return 60000 / bpm;
+  }
+  function beatIntervalSec() {
+    return 60 / bpm;
+  }
+
+  // --- Precise Scheduler (Web Audio clock) ---
+  // Lookahead scheduling: a fast JS timer checks frequently and
+  // schedules audio events ahead of time on the sample-accurate audio clock.
+  // Beat times are computed mathematically from a start time, so there is
+  // zero accumulated drift.
+  const LOOKAHEAD_SEC = 0.1;   // schedule 100ms into the future
+  const SCHEDULER_MS = 25;     // check every 25ms
+
+  let schedulerTimer = null;
+  let nextBeatIndex = 0;        // which beat to schedule next (0-based across warmup + measure)
+  let startAudioTime = 0;       // audioCtx.currentTime of beat 0
+
+  // The audio clock is the ONLY source of truth for timing.
+  // Beats are scheduled at exact audio times: startAudioTime + N * interval.
+  // Taps are recorded as audioCtx.currentTime (same clock).
+  // This eliminates drift between performance.now() and the audio clock.
+  // audioCtx.currentTime has ~2.7ms quantization (one render quantum at 48kHz)
+  // but this is unbiased noise that averages out over 10 taps.
+  let measureStartAudioTime = 0; // audio time of first MEASUREMENT beat
+
+  function matchTapToAudioBeat(tapAudioTime) {
+    const interval = beatIntervalSec();
+    const elapsed = tapAudioTime - measureStartAudioTime;
+    const beatIndex = Math.round(elapsed / interval);
+    const expectedBeatAudioTime = measureStartAudioTime + beatIndex * interval;
+    return (tapAudioTime - expectedBeatAudioTime) * 1000; // return ms
+  }
+
+  function scheduler() {
+    if (state !== 'warmup' && state !== 'running') return;
+    const now = audioCtx.currentTime;
+
+    while (nextBeatIndex * beatIntervalSec() + startAudioTime < now + LOOKAHEAD_SEC) {
+      const beatAudioTime = startAudioTime + nextBeatIndex * beatIntervalSec();
+      const delayMs = Math.max(0, (beatAudioTime - audioCtx.currentTime) * 1000);
+      const isWarmup = nextBeatIndex < WARMUP_BEATS;
+      const measureBeatIndex = nextBeatIndex - WARMUP_BEATS;
+
+      // Schedule audio precisely on the audio clock
+      if (useAudio) playTickAt(beatAudioTime);
+
+      // Schedule visual + UI updates via setTimeout (close as possible)
+      const idx = nextBeatIndex;
+      setTimeout(() => {
+        if (state !== 'warmup' && state !== 'running') return;
+
+        if (useVisual) flashTapZone();
+        pulseTapZone();
+
+        if (isWarmup) {
+          const remaining = WARMUP_BEATS - idx - 1;
+          if (remaining > 0) {
+            tapZone.innerHTML = `<span class="warmup-label">Warm-up</span><span class="countdown-num">${remaining}</span><span class="tap-zone-hint">listen to the rhythm</span>`;
+          } else {
+            tapZone.innerHTML = `<span class="warmup-label">Warm-up</span><span class="countdown-num">0</span><span class="tap-zone-hint">next beat starts measurement</span>`;
+          }
+        } else {
+          if (measureBeatIndex === 0) {
+            state = 'running';
+            tapZone.innerHTML = `<span class="tap-zone-label">Tap</span><span class="tap-zone-hint">click or Enter</span>`;
+          }
+          const n = measureBeatIndex + 1;
+          console.log(`[beat] #${n}  audioTime=${beatAudioTime.toFixed(6)}s`);
+          eventLog.push({ type: 'beat', audioTime: beatAudioTime, n });
+        }
+      }, delayMs);
+
+      // Record the audio time of the first measurement beat
+      if (nextBeatIndex === WARMUP_BEATS) {
+        measureStartAudioTime = beatAudioTime;
+      }
+
+      nextBeatIndex++;
+    }
+
+    schedulerTimer = setTimeout(scheduler, SCHEDULER_MS);
+  }
+
+  // --- Start Session ---
+  function startSession() {
+    if (state !== 'idle') return;
+    ensureAudioCtx();
+
+    beatTimes = [];
+    userTimes = [];
+    latencies = [];
+    latencyHistory = [];
+    eventLog = [];
+
+    controlsRow.classList.remove('hidden');
+    tapZone.classList.add('running');
+
+    startBeats();
+  }
+
+  function startBeats() {
+    state = 'warmup';
+    nextBeatIndex = 0;
+    startAudioTime = audioCtx.currentTime + 0.05; // tiny buffer so first beat is scheduled
+    warmupRemaining = WARMUP_BEATS;
+    tapZone.innerHTML = `<span class="warmup-label">Warm-up</span><span class="countdown-num">${WARMUP_BEATS}</span><span class="tap-zone-hint">listen to the rhythm</span>`;
+    scheduler();
+  }
+
+  // --- User Tap ---
+  function handleTap() {
+    if (state === 'idle') {
+      startSession();
+      return;
+    }
+    if (state === 'warmup') return;
+    if (state !== 'running') return;
+
+    // Record tap in AUDIO clock space — same clock that drives the beats.
+    // This eliminates drift between performance.now() and audioCtx.currentTime.
+    const tapAudioTime = audioCtx.currentTime;
+    const tapPerfTime = performance.now(); // for logging only
+    userTimes.push(tapPerfTime);
+
+    // Flash feedback
+    tapZone.classList.add('flash');
+    requestAnimationFrame(() => requestAnimationFrame(() => tapZone.classList.remove('flash')));
+
+    // Match to nearest beat — pure math in audio clock space, zero drift
+    const tapLatency = matchTapToAudioBeat(tapAudioTime);
+
+    eventLog.push({ type: 'tap', audioTime: tapAudioTime, perfTime: tapPerfTime, latency: tapLatency });
+
+    latencies.push(tapLatency);
+
+    console.log(`[tap] latency=${tapLatency.toFixed(1)}ms  window=[${latencies.map(l => Math.abs(l).toFixed(0)).join(', ')}]  avg=${(latencies.reduce((a,b) => a + Math.abs(b), 0) / latencies.length).toFixed(1)}ms`);
+
+    // Keep sliding window
+    if (latencies.length > WINDOW_SIZE) latencies.shift();
+
+    // History for graph
+    latencyHistory.push(tapLatency);
+    if (latencyHistory.length > MAX_HISTORY) latencyHistory.shift();
+
+    updateDisplay();
+  }
+
+  // --- Display ---
+  function updateDisplay() {
+    if (latencies.length === 0) return;
+
+    // Average of ABSOLUTE values — we care about magnitude, not direction
+    const absAvg = latencies.reduce((a, b) => a + Math.abs(b), 0) / latencies.length;
+    const rounded = Math.round(absAvg * 10) / 10;
+    const interval = beatIntervalMs();
+    const lastTap = latencies[latencies.length - 1];
+    const lastTapAbs = Math.abs(lastTap);
+
+    // Status color based on average
+    let status = 'good';
+    if (rounded > 100) status = 'bad';
+    else if (rounded > 30) status = 'ok';
+
+    latencyValue.className = 'latency-value status-' + status;
+    latencyHero.className = 'latency-hero status-' + status;
+    latencyValue.innerHTML = `${rounded.toFixed(1)}<span class="latency-unit">ms</span>`;
+    const absVals = latencies.map(l => Math.abs(l));
+    const minL = Math.min(...absVals).toFixed(0);
+    const maxL = Math.max(...absVals).toFixed(0);
+    latencySub.textContent = latencies.length > 1
+      ? `avg of ${latencies.length} taps (${minL}\u2013${maxL}ms)`
+      : `1 tap`;
+
+    // Stats
+    statBeat.textContent = Math.round(interval) + 'ms';
+    const sign = lastTap >= 0 ? '+' : '\u2212';
+    statLastTap.textContent = `${sign}${lastTapAbs.toFixed(0)}`;
+
+    // Detected user BPM
+    if (userTimes.length >= 2) {
+      const intervals = [];
+      for (let i = 1; i < userTimes.length; i++) {
+        intervals.push(userTimes[i] - userTimes[i - 1]);
+      }
+      // Use last 10
+      const recent = intervals.slice(-10);
+      const avgInterval = recent.reduce((a, b) => a + b, 0) / recent.length;
+      const detectedBpm = 60000 / avgInterval;
+      statUserBpm.textContent = detectedBpm.toFixed(1);
+    }
+
+    drawGraph();
+  }
+
+  // --- Graph ---
+  function drawGraph() {
+    const ctx = graphCanvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const rect = graphCanvas.getBoundingClientRect();
+    graphCanvas.width = rect.width * dpr;
+    graphCanvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    const w = rect.width;
+    const h = rect.height;
+
+    ctx.clearRect(0, 0, w, h);
+
+    if (latencyHistory.length < 2) return;
+
+    const padding = { top: 20, bottom: 8, left: 4, right: 4 };
+    const plotW = w - padding.left - padding.right;
+    const plotH = h - padding.top - padding.bottom;
+
+    // Signed values: positive = late (above beat line), negative = early (below)
+    const plotVals = latencyHistory;
+    const maxAbs = Math.max(...plotVals.map(Math.abs), 50);
+
+    // Map value to Y: 0ms is centered, positive goes up, negative goes down
+    const midY = padding.top + plotH / 2;
+    function valToY(v) {
+      return midY - (v / maxAbs) * (plotH / 2);
+    }
+
+    // --- Beat line at 0ms (the reference) ---
+    ctx.strokeStyle = 'rgba(240, 168, 48, 0.35)';
+    ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padding.left, midY); ctx.lineTo(w - padding.right, midY); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Label the sides
+    ctx.font = '9px "IBM Plex Mono", monospace';
+    ctx.fillStyle = 'rgba(138, 136, 144, 0.5)';
+    ctx.textAlign = 'right';
+    ctx.fillText('LATE', w - padding.right, padding.top + 10);
+    ctx.fillText('EARLY', w - padding.right, h - padding.bottom);
+
+    // --- Draw line ---
+    ctx.beginPath();
+    for (let i = 0; i < plotVals.length; i++) {
+      const x = padding.left + (i / (MAX_HISTORY - 1)) * plotW;
+      const y = valToY(plotVals[i]);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = '#f0a830';
+    ctx.lineWidth = 1.5;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+
+    // --- Draw dots: color by late (amber/red) vs early (blue/cyan) ---
+    for (let i = 0; i < plotVals.length; i++) {
+      const x = padding.left + (i / (MAX_HISTORY - 1)) * plotW;
+      const y = valToY(plotVals[i]);
+      const v = plotVals[i];
+      const absV = Math.abs(v);
+      if (v >= 0) {
+        // Late: green < 30, yellow < 100, red > 100
+        ctx.fillStyle = absV <= 30 ? '#30d060' : absV <= 100 ? '#e8c840' : '#e84040';
+      } else {
+        // Early: cyan/blue tones
+        ctx.fillStyle = absV <= 30 ? '#40c8e0' : absV <= 100 ? '#6090e0' : '#8050d0';
+      }
+      ctx.beginPath();
+      ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // --- Stop / Reset ---
+  function stopSession() {
+    state = 'idle';
+    clearTimeout(schedulerTimer);
+    tapZone.classList.remove('running', 'pulse', 'visual-flash');
+    tapZone.innerHTML = `<span class="tap-zone-label">Tap to Start</span><span class="tap-zone-hint">click or key</span>`;
+    controlsRow.classList.add('hidden');
+  }
+
+  function resetDisplay() {
+    latencyValue.innerHTML = '&mdash;<span class="latency-unit">ms</span>';
+    latencyValue.className = 'latency-value';
+    latencyHero.className = 'latency-hero';
+    latencySub.textContent = 'Tap to begin';
+    statBeat.textContent = '\u2014';
+    statUserBpm.textContent = '\u2014';
+    statLastTap.textContent = '\u2014';
+    latencyHistory = [];
+    const ctx = graphCanvas.getContext('2d');
+    ctx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+  }
+
+  // --- Event Listeners ---
+  tapZone.addEventListener('mousedown', e => { e.preventDefault(); handleTap(); });
+  tapZone.addEventListener('touchstart', e => { e.preventDefault(); handleTap(); }, { passive: false });
+
+  // Global Enter key to tap (works without focus)
+  document.addEventListener('keydown', e => {
+    // Key binding mode: capture next key press
+    if (isListeningForKey) {
+      e.preventDefault();
+      if (e.key !== 'Escape') {
+        tapKeys.add(e.key);
+        saveTapKeys();
+      }
+      isListeningForKey = false;
+      updateKeyDisplay();
+      return;
+    }
+
+    if (tapKeys.has(e.key)) {
+      if (document.activeElement === bpmInput) return;
+      e.preventDefault();
+      handleTap();
+    }
+  });
+
+  addKeyBtn.addEventListener('click', () => {
+    isListeningForKey = true;
+    keyListEl.textContent = 'press a key\u2026';
+    keyListEl.classList.add('key-listening');
+  });
+
+  clearKeysBtn.addEventListener('click', () => {
+    tapKeys = new Set(DEFAULT_TAP_KEYS);
+    isListeningForKey = false;
+    saveTapKeys();
+    updateKeyDisplay();
+  });
+
+  btnStop.addEventListener('click', stopSession);
+  btnReset.addEventListener('click', () => { stopSession(); resetDisplay(); eventLog = []; });
+
+  // Download log as JSON
+  btnDownloadLog.addEventListener('click', () => {
+    if (eventLog.length === 0) return;
+    const data = {
+      exportedAt: new Date().toISOString(),
+      bpm,
+      audioEnabled: useAudio,
+      visualEnabled: useVisual,
+      events: eventLog,
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `latency-log-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // BPM controls — changing mid-session restarts the beat grid
+  function setBpm(newBpm) {
+    newBpm = Math.max(20, Math.min(1200, newBpm));
+    if (newBpm === bpm) return;
+    bpm = newBpm;
+    bpmInput.value = bpm;
+    localStorage.setItem('latency-bpm', bpm);
+    if (state === 'warmup' || state === 'running') {
+      // Restart the scheduler at the new BPM from NOW
+      clearTimeout(schedulerTimer);
+      nextBeatIndex = 0;
+      startAudioTime = audioCtx.currentTime + 0.05;
+      if (state === 'running') {
+        // Stay in running, just reset the beat grid
+        measureStartAudioTime = startAudioTime;
+        scheduler();
+      } else {
+        // Restart warmup
+        warmupRemaining = WARMUP_BEATS;
+        tapZone.innerHTML = `<span class="warmup-label">Warm-up</span><span class="countdown-num">${WARMUP_BEATS}</span><span class="tap-zone-hint">listen to the rhythm</span>`;
+        scheduler();
+      }
+    }
+  }
+  bpmInput.addEventListener('input', () => {
+    const v = parseInt(bpmInput.value, 10);
+    if (v >= 20 && v <= 1200) setBpm(v);
+  });
+  bpmDown.addEventListener('click', () => setBpm(bpm - 5));
+  bpmUp.addEventListener('click', () => setBpm(bpm + 5));
+
+  // Mode switches
+  modeAudio.addEventListener('change', () => {
+    useAudio = modeAudio.checked;
+    if (!useAudio && !useVisual) {
+      useVisual = true;
+      modeVisual.checked = true;
+    }
+    localStorage.setItem('latency-audio', useAudio);
+    localStorage.setItem('latency-visual', useVisual);
+  });
+  modeVisual.addEventListener('change', () => {
+    useVisual = modeVisual.checked;
+    if (!useAudio && !useVisual) {
+      useAudio = true;
+      modeAudio.checked = true;
+    }
+    localStorage.setItem('latency-audio', useAudio);
+    localStorage.setItem('latency-visual', useVisual);
+  });
+
+  // Info panel
+  infoToggle.addEventListener('click', () => {
+    infoToggle.classList.toggle('open');
+    infoContent.classList.toggle('open');
+  });
+
+  // Resize graph
+  window.addEventListener('resize', () => {
+    if (latencyHistory.length >= 2) drawGraph();
+  });
+
+  // Graph hover tooltip
+  graphCanvas.addEventListener('mousemove', showGraphTooltip);
+  graphCanvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    showGraphTooltip(touch);
+  }, { passive: false });
+  graphCanvas.addEventListener('mouseleave', () => {
+    graphTooltip.style.display = 'none';
+  });
+  graphCanvas.addEventListener('touchend', () => {
+    graphTooltip.style.display = 'none';
+  });
+
+  function showGraphTooltip(e) {
+    if (latencyHistory.length < 2) return;
+    const rect = graphCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const padding = { left: 4, right: 4 };
+    const plotW = rect.width - padding.left - padding.right;
+    const ratio = (x - padding.left) / plotW;
+    const idx = Math.round(ratio * (MAX_HISTORY - 1));
+    // Map to actual data index
+    const dataIdx = idx - (MAX_HISTORY - latencyHistory.length);
+    if (dataIdx < 0 || dataIdx >= latencyHistory.length) {
+      graphTooltip.style.display = 'none';
+      return;
+    }
+    const val = latencyHistory[dataIdx];
+    const absVal = Math.abs(val);
+    const direction = val >= 0 ? 'late' : 'early';
+    graphTooltip.textContent = `${val >= 0 ? '+' : '\u2212'}${absVal.toFixed(1)}ms ${direction}`;
+    graphTooltip.style.display = 'block';
+    // Position above the point
+    const tooltipX = Math.min(rect.width - 40, Math.max(40, x));
+    graphTooltip.style.left = tooltipX + 'px';
+    graphTooltip.style.top = '2px';
+  }
+})();
+</script>
+</body>
+</html>
